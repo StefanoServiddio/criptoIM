@@ -71,6 +71,7 @@ public class Chat extends AppCompatActivity {
         tx.setMovementMethod(new ScrollingMovementMethod());
 
        final Receiver task=new Receiver();
+        task.execute();
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
         Intent i=getIntent();
@@ -92,7 +93,7 @@ public class Chat extends AppCompatActivity {
         bt2.setOnClickListener(new View.OnClickListener(){
                public void onClick(View v)
                {
-                 sendMess(task);
+                 sendMess();
 
 
 
@@ -107,7 +108,7 @@ public class Chat extends AppCompatActivity {
 
 
 
-    private void sendMess(Receiver task){
+    private void sendMess(){
 
         sent=et.getText().toString();
         if(!sent.equals("")) {
@@ -121,7 +122,7 @@ public class Chat extends AppCompatActivity {
                 SocketHandler.getOutput().writeObject(mess);
                 SocketHandler.getOutput().flush();
                 Log.d(TAG,"ho scritto: "+sent);
-
+                et.getText().clear();
 
             } catch (UnsupportedEncodingException e) {
                 e.printStackTrace();
@@ -158,6 +159,7 @@ public class Chat extends AppCompatActivity {
         protected void onProgressUpdate(Envelop... msg){
             tx.append(msg[0].getFrom()+" scrive: ");
             tx.append(msg[0].getText());
+            tx.append("\n");
 
        }
 

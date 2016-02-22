@@ -30,7 +30,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:hint="Received"
+        android:gravity="bottom"
         android:id="@+id/textView"
         android:layout_above="@+id/button2"
         android:layout_alignEnd="@+id/scrollView"
@@ -44,7 +44,7 @@
         android:layout_below="@+id/button2"
         android:layout_alignParentEnd="true"
         android:layout_toEndOf="@+id/button"
-        android:text="Send Message" />
+        android:hint="Send Message" />
 
     <ScrollView
         android:layout_width="wrap_content"
