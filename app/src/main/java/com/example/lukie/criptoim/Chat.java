@@ -36,7 +36,7 @@ import com.stefano.android.Envelop;
 
 
 import android.util.Log;
-enum Mode{NO,AES,DES3,Blow};
+//enum Mode{NO,AES,DES3,Blow};
 public class Chat extends AppCompatActivity {
 
     Button bt; // connect button
@@ -119,7 +119,8 @@ public class Chat extends AppCompatActivity {
                 mess.setText(sent);
                 mess.setCripto(Envelop.Mode.NO);
                 Log.d(TAG,"ho scritto: "+sent);
-                SocketHandler.getOutput().writeObject(mess);
+                byte[] data=mess.convEnvByte(mess);
+                SocketHandler.getOutput().writeObject(data);
                 SocketHandler.getOutput().flush();
                 Log.d(TAG,"ho scritto: "+sent);
                 et.getText().clear();
@@ -139,11 +140,15 @@ public class Chat extends AppCompatActivity {
         @Override
         protected Void doInBackground(Void... params) {
             try{
+                byte[] data=null;
 
                 while(true) {
+
                     //deve decrittografare il tutto
-                   if( (received = (Envelop)SocketHandler.getInput().readObject())!=null) {
-                        publishProgress(received);
+                   if( (data = (byte[])SocketHandler.getInput().readObject())!=null) {
+                       received=received.convByteEnv(data);
+                       Log.d(TAG,"ho ricevuto: "+received.getText());
+                       publishProgress(received);
                    }
                 }
             }catch(IOException ioe)
