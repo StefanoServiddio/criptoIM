@@ -28,14 +28,20 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.security.NoSuchAlgorithmException;
 import java.util.Random;
-import com.stefano.android.Envelop;
+import com.stefano.android.*;
 
 
 
 
 
 import android.util.Log;
+
+import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+
 //enum Mode{NO,AES,DES3,Blow};
 public class Chat extends AppCompatActivity {
 
@@ -50,9 +56,16 @@ public class Chat extends AppCompatActivity {
     String userName;
     BigInteger[]PuKeyServ;
     String TAG="CriptoIM";
+    String crittoState="NO";
     RSA algRSA=null;
+    RSASend algRSAServ=null;
     ObjectInputStream inputStream = null;
     ObjectOutputStream outputStream = null;
+    AES algAES;
+    TripleDES algDes;
+    Blowfish algBlow;
+    HmacSha1 algHMAC;
+
 
     int count=0;
 
@@ -75,10 +88,11 @@ public class Chat extends AppCompatActivity {
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
         Intent i=getIntent();
-        final RSASend algRSAServ=(RSASend)i.getSerializableExtra(TAG);
+        algRSAServ=(RSASend)i.getSerializableExtra(TAG);
         Bundle bundle=getIntent().getExtras();
         userName=bundle.getString("userName");
         Log.d(TAG,"il mio nome è "+userName);
+
 
 
 
@@ -111,15 +125,25 @@ public class Chat extends AppCompatActivity {
     private void sendMess(){
 
         sent=et.getText().toString();
+        crittoState="NO";
         if(!sent.equals("")) {
 
             try {
                 Envelop mess=new Envelop();
                 mess.setFrom(userName);
                 mess.setText(sent);
+
+                //modalità di criptazione da acquisire dall'activity crypto
                 mess.setCripto(Envelop.Mode.NO);
                 Log.d(TAG,"ho scritto: "+sent);
+                //conversione in bye
                 byte[] data=mess.convEnvByte(mess);
+                //Scegli il tipo di Criptazione
+                Log.d("TAG", "Modalità di crittazione inviata"+crittoState);
+                SocketHandler.getOutput().writeObject(algRSAServ.encryptPu(crittoState));
+                SocketHandler.getOutput().flush();
+
+                //invio criptato
                 SocketHandler.getOutput().writeObject(data);
                 SocketHandler.getOutput().flush();
                 Log.d(TAG,"ho scritto: "+sent);
@@ -128,6 +152,8 @@ public class Chat extends AppCompatActivity {
             } catch (UnsupportedEncodingException e) {
                 e.printStackTrace();
             } catch (IOException e) {
+                e.printStackTrace();
+            } catch (Exception e) {
                 e.printStackTrace();
             }
 
@@ -140,21 +166,28 @@ public class Chat extends AppCompatActivity {
         @Override
         protected Void doInBackground(Void... params) {
             try{
-                byte[] data=null;
+                byte[] dataRec=null;
+                Envelop e=new Envelop();
 
                 while(true) {
 
-                    //deve decrittografare il tutto
-                   if( (data = (byte[])SocketHandler.getInput().readObject())!=null) {
-                       received=received.convByteEnv(data);
-                       Log.d(TAG,"ho ricevuto: "+received.getText());
-                       publishProgress(received);
+
+
+                   if( (dataRec = (byte[])SocketHandler.getInput().readObject())!=null){
+                       //Decripta e converti i byte in envelop
+
+
+                       e=e.convByteEnv(dataRec);
+                       Log.d(TAG,"ho ricevuto: "+e.getText());
+                       publishProgress(e);
                    }
                 }
             }catch(IOException ioe)
             {
                 ioe.printStackTrace();
             } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            } catch (Exception e) {
                 e.printStackTrace();
             }
 

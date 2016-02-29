@@ -10,12 +10,22 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.stefano.android.AES;
+import com.stefano.android.Blowfish;
+import com.stefano.android.HmacSha1;
+import com.stefano.android.TripleDES;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.math.BigInteger;
 import java.net.Socket;
+import java.security.NoSuchAlgorithmException;
+
+import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
 
 public class LoginReg extends AppCompatActivity {
 
@@ -27,6 +37,16 @@ public class LoginReg extends AppCompatActivity {
     Button log;
     String TAG="Cripto Connection";
     RSA myRSA;
+
+    SecretKey keyAes;
+    SecretKey keyDes;
+    SecretKey keyBlow;
+    SecretKey keyHmac;
+
+    AES algAES;
+    TripleDES algDes;
+    Blowfish algBlow;
+    HmacSha1 algHMAC;
 
 
     @Override
@@ -44,6 +64,22 @@ public class LoginReg extends AppCompatActivity {
         Intent i=getIntent();
         final RSASend algRSAServ=(RSASend)i.getSerializableExtra(TAG);
         Log.d(TAG,algRSAServ.getE().toString());
+
+
+        try {
+            //genera tutte le chiavi necessarie per gli agloritmi
+            createKey();
+            //genero algoritmi che userà anche il server
+            algAES=new AES(keyAes);
+            algDes=new TripleDES(keyDes);
+            algBlow=new Blowfish(keyBlow);
+            algHMAC=new HmacSha1(keyHmac);
+
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (NoSuchPaddingException e) {
+            e.printStackTrace();
+        }
 
 
         nameClient.setVisibility(View.INVISIBLE);
@@ -245,6 +281,21 @@ public class LoginReg extends AppCompatActivity {
 
             }
         });
+
+    }
+    private void createKey() throws NoSuchAlgorithmException {
+        KeyGenerator kg=KeyGenerator.getInstance("AES");
+        kg.init(128);
+        keyAes=kg.generateKey();
+        kg=KeyGenerator.getInstance("DESede");
+        kg.init(112);
+        keyDes=kg.generateKey();
+        kg=KeyGenerator.getInstance("Blowfish");
+        kg.init(128);
+        keyBlow=kg.generateKey();
+        kg=KeyGenerator.getInstance("HmacSha1");
+        kg.init(128);
+        keyHmac=kg.generateKey();
 
 
     }
