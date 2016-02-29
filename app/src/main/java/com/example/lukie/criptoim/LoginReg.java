@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -207,6 +208,7 @@ public class LoginReg extends AppCompatActivity {
 
                 try {
                     String s;
+                   byte[] dataKey;
 
                     if(!(userClient.getText().toString().equals("")) && !(passwClient.getText().toString().equals(""))) {
                         Log.d(TAG, "invio log");
@@ -231,6 +233,25 @@ public class LoginReg extends AppCompatActivity {
                         BigInteger[] Pukey=myRSA.getPuKey();
                         SocketHandler.getOutput().writeObject(Pukey);
                         SocketHandler.getOutput().flush();
+
+                        //invio chiave AES
+                        dataKey=keyAes.getEncoded();
+                        SocketHandler.getOutput().writeObject(algRSAServ.encryptPuByte(dataKey));
+                        SocketHandler.getOutput().flush();
+                       //invio chiave DES3
+                       /* dataKey=keyDes.getEncoded();
+                        SocketHandler.getOutput().writeObject(algRSAServ.encryptPuByte(dataKey));
+                        SocketHandler.getOutput().flush();
+                      //invio chiave Blowfish
+                        dataKey=keyDes.getEncoded();
+                        SocketHandler.getOutput().writeObject(algRSAServ.encryptPuByte(dataKey));
+                        SocketHandler.getOutput().flush();
+                       //invio chiave Hmac
+                        dataKey=keyDes.getEncoded();
+                        SocketHandler.getOutput().writeObject(algRSAServ.encryptPuByte(dataKey));
+                        SocketHandler.getOutput().flush();
+*/
+
                         String check = (String) SocketHandler.getInput().readObject();
                         check=algRSAServ.decryptPu(check);
                         Log.d(TAG, "ricevo: " + check );
@@ -241,6 +262,10 @@ public class LoginReg extends AppCompatActivity {
                             toast.show();
                             Intent i=new Intent(getApplicationContext(),Chat.class);
                             i.putExtra(TAG,algRSAServ);
+                            i.putExtra("AES", algAES);
+//                            i.putExtra("DES3", (Serializable) algDes);
+//                            i.putExtra("Blowfish", (Serializable) algBlow);
+//                            i.putExtra("Hmac", (Serializable) algHMAC);
                             i.putExtra("userName",userName);
                             startActivity(i);
 
