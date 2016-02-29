@@ -13,9 +13,12 @@ import android.widget.Toast;
 
 import com.stefano.android.AES;
 import com.stefano.android.Blowfish;
+import com.stefano.android.CryptoKey;
+import com.stefano.android.Envelop;
 import com.stefano.android.HmacSha1;
 import com.stefano.android.TripleDES;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -27,6 +30,7 @@ import java.security.NoSuchAlgorithmException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 public class LoginReg extends AppCompatActivity {
 
@@ -39,15 +43,9 @@ public class LoginReg extends AppCompatActivity {
     String TAG="Cripto Connection";
     RSA myRSA;
 
-    SecretKey keyAes;
-    SecretKey keyDes;
-    SecretKey keyBlow;
-    SecretKey keyHmac;
 
-    AES algAES;
-    TripleDES algDes;
-    Blowfish algBlow;
-    HmacSha1 algHMAC;
+    CryptoKey keyGroup=new CryptoKey();
+
 
 
     @Override
@@ -67,20 +65,15 @@ public class LoginReg extends AppCompatActivity {
         Log.d(TAG,algRSAServ.getE().toString());
 
 
-        try {
-            //genera tutte le chiavi necessarie per gli agloritmi
-            createKey();
-            //genero algoritmi che userà anche il server
-            algAES=new AES(keyAes);
-            algDes=new TripleDES(keyDes);
-            algBlow=new Blowfish(keyBlow);
-            algHMAC=new HmacSha1(keyHmac);
 
+            //genera tutte le chiavi necessarie per gli agloritmi
+        try {
+            createKey();
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
-        } catch (NoSuchPaddingException e) {
-            e.printStackTrace();
         }
+        //genero algoritmi che userà anche il server
+
 
 
         nameClient.setVisibility(View.INVISIBLE);
@@ -235,22 +228,21 @@ public class LoginReg extends AppCompatActivity {
                         SocketHandler.getOutput().flush();
 
                         //invio chiave AES
-                        dataKey=keyAes.getEncoded();
-                        SocketHandler.getOutput().writeObject(algRSAServ.encryptPuByte(dataKey));
-                        SocketHandler.getOutput().flush();
-                       //invio chiave DES3
-                       /* dataKey=keyDes.getEncoded();
-                        SocketHandler.getOutput().writeObject(algRSAServ.encryptPuByte(dataKey));
-                        SocketHandler.getOutput().flush();
-                      //invio chiave Blowfish
-                        dataKey=keyDes.getEncoded();
-                        SocketHandler.getOutput().writeObject(algRSAServ.encryptPuByte(dataKey));
-                        SocketHandler.getOutput().flush();
-                       //invio chiave Hmac
-                        dataKey=keyDes.getEncoded();
-                        SocketHandler.getOutput().writeObject(algRSAServ.encryptPuByte(dataKey));
-                        SocketHandler.getOutput().flush();
-*/
+                         Envelop busta=new Envelop();
+                        busta.setText("mio nome");
+
+                        dataKey=busta.convEnvByte(busta);
+                        Log.d(TAG,"datiiiiiiiii "+dataKey);
+                         dataKey=algRSAServ.encryptPuByte(dataKey);
+
+                        DataOutputStream dOut = new DataOutputStream(SocketHandler.getSocket().getOutputStream());
+
+                        dOut.writeInt(dataKey.length); // write length of the message
+                        dOut.write(dataKey);
+
+
+
+
 
                         String check = (String) SocketHandler.getInput().readObject();
                         check=algRSAServ.decryptPu(check);
@@ -262,10 +254,12 @@ public class LoginReg extends AppCompatActivity {
                             toast.show();
                             Intent i=new Intent(getApplicationContext(),Chat.class);
                             i.putExtra(TAG,algRSAServ);
-                            i.putExtra("AES", algAES);
-//                            i.putExtra("DES3", (Serializable) algDes);
-//                            i.putExtra("Blowfish", (Serializable) algBlow);
-//                            i.putExtra("Hmac", (Serializable) algHMAC);
+                            i.putExtra("AES", keyGroup.getAes());
+                            Log.d(TAG,"chiave AES: "+keyGroup.getAes().toString());
+                            i.putExtra("DES3", keyGroup.getDes());
+                            Log.d(TAG,"chiave DES: "+keyGroup.getDes().toString());
+                            i.putExtra("Blowfish",keyGroup.getBlow());
+                            i.putExtra("Hmac", keyGroup.getHmac());
                             i.putExtra("userName",userName);
                             startActivity(i);
 
@@ -309,18 +303,30 @@ public class LoginReg extends AppCompatActivity {
 
     }
     private void createKey() throws NoSuchAlgorithmException {
+
+        SecretKey keyAes;
+        SecretKey keyDes;
+        SecretKey keyBlow;
+        SecretKey keyHmac;
+
         KeyGenerator kg=KeyGenerator.getInstance("AES");
         kg.init(128);
         keyAes=kg.generateKey();
+        keyGroup.setAes(keyAes);
+
         kg=KeyGenerator.getInstance("DESede");
         kg.init(112);
         keyDes=kg.generateKey();
+        keyGroup.setDes(keyDes);
+
         kg=KeyGenerator.getInstance("Blowfish");
         kg.init(128);
         keyBlow=kg.generateKey();
-        kg=KeyGenerator.getInstance("HmacSha1");
+        keyGroup.setBlow(keyBlow);
+        kg=KeyGenerator.getInstance("HmacSHA1");
         kg.init(128);
         keyHmac=kg.generateKey();
+        keyGroup.setHmac(keyHmac);
 
 
     }

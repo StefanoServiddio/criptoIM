@@ -59,12 +59,23 @@ public class Chat extends AppCompatActivity {
     String crittoState="NO";
     RSA algRSA=null;
     RSASend algRSAServ=null;
-    ObjectInputStream inputStream = null;
-    ObjectOutputStream outputStream = null;
+
+
+    SecretKey keyAes;
+    SecretKey keyDes;
+    SecretKey keyBlow;
+    SecretKey keyHmac;
+
     AES algAES;
     TripleDES algDes;
     Blowfish algBlow;
     HmacSha1 algHMAC;
+
+
+
+    ObjectInputStream inputStream = null;
+    ObjectOutputStream outputStream = null;
+
 
 
     int count=0;
@@ -91,7 +102,29 @@ public class Chat extends AppCompatActivity {
         algRSAServ=(RSASend)i.getSerializableExtra(TAG);
         Bundle bundle=getIntent().getExtras();
         userName=bundle.getString("userName");
+        keyAes=(SecretKey)i.getSerializableExtra("AES");
+        keyAes=(SecretKey)i.getSerializableExtra("DES3");
+        keyAes=(SecretKey)i.getSerializableExtra("Blowfish");
+        keyAes=(SecretKey)i.getSerializableExtra("Hmac");
         Log.d(TAG,"il mio nome è "+userName);
+        Log.d(TAG,"chiave AES:  "+new String(String.valueOf(keyAes)));
+
+
+        try {
+
+
+            //genero algoritmi che userà anche il server
+            algAES=new AES(keyAes);
+            algDes=new TripleDES(keyDes);
+            algBlow=new Blowfish(keyBlow);
+            algHMAC=new HmacSha1(keyHmac);
+
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (NoSuchPaddingException e) {
+            e.printStackTrace();
+        }
+
 
 
 
@@ -136,16 +169,14 @@ public class Chat extends AppCompatActivity {
                 //modalità di criptazione da acquisire dall'activity crypto
                 mess.setCripto(Envelop.Mode.NO);
                 Log.d(TAG,"ho scritto: "+sent);
-                //conversione in bye
+                //conversione in byte
                 byte[] data=mess.convEnvByte(mess);
                 //Scegli il tipo di Criptazione
-                Log.d("TAG", "Modalità di crittazione inviata"+crittoState);
-                SocketHandler.getOutput().writeObject(algRSAServ.encryptPu(crittoState));
+                Log.d("TAG", "Modalità di crittazione inviata: "+crittoState);
+                SocketHandler.getOutput().writeObject(algAES.encrypt(data));
                 SocketHandler.getOutput().flush();
 
-                //invio criptato
-                SocketHandler.getOutput().writeObject(data);
-                SocketHandler.getOutput().flush();
+
                 Log.d(TAG,"ho scritto: "+sent);
                 et.getText().clear();
 
