@@ -4,11 +4,14 @@ import android.content.Intent;
 import android.os.StrictMode;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextClock;
 import android.widget.TextView;
+
+import com.stefano.android.NewRSA;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -16,6 +19,13 @@ import java.io.ObjectOutputStream;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 
 
 public class Connection extends AppCompatActivity {
@@ -25,7 +35,7 @@ public class Connection extends AppCompatActivity {
     TextView ip_serv;
     TextView port_serv;
     String TAG="Cripto Connection";
-    RSASend algRSAServ=new RSASend();
+    NewRSA algRSAServ=new NewRSA();
 
 
     @Override
@@ -62,24 +72,23 @@ public class Connection extends AppCompatActivity {
                                            try {
                                                if(SocketHandler.getSocket()!=null){
                                                    SocketHandler.setInput(new ObjectInputStream(SocketHandler.getSocket().getInputStream()));
-                                               algRSAServ.setPuKey((BigInteger[]) SocketHandler.getInput().readObject());
+                                               algRSAServ.setKPu((PublicKey) SocketHandler.getInput().readObject());
                                                // algRSA=new RSA(PuKeyServ[0],PuKeyServ[1]);
-                                               Log.d(TAG, "N: " + algRSAServ.getE().toString());
-                                               Log.d(TAG, "N: " + algRSAServ.getN().toString());
+                                               Log.d(TAG, "Chiave Pubblica del Server: " + Base64.encodeToString(algRSAServ.getPu().getEncoded(),Base64.DEFAULT));
+
 
 
                                                SocketHandler.setOutput( new ObjectOutputStream(SocketHandler.getSocket().getOutputStream()));
                                                    //Crittografia ack chiave pubblica Server
-                                                   String s=algRSAServ.encryptPu("ACK");
-                                                   Log.d(TAG, s);
+                                                   byte[] s=algRSAServ.rsaEncrypt("ACK".getBytes(),algRSAServ.getPu());
+
                                                    SocketHandler.getOutput().writeObject(s);
                                                    SocketHandler.getOutput().flush();
-                                                   ;
+
                                                    if(SocketHandler.getSocket().isConnected())
                                                    {
                                                        Intent intent=new Intent(getApplicationContext(),LoginReg.class);
                                                        intent.putExtra(TAG,algRSAServ);
-
                                                        startActivity(intent);
                                                    }
 
@@ -90,6 +99,16 @@ public class Connection extends AppCompatActivity {
                                            } catch (IOException e) {
                                                e.printStackTrace();
                                            } catch (ClassNotFoundException e) {
+                                               e.printStackTrace();
+                                           } catch (NoSuchPaddingException e) {
+                                               e.printStackTrace();
+                                           } catch (NoSuchAlgorithmException e) {
+                                               e.printStackTrace();
+                                           } catch (InvalidKeyException e) {
+                                               e.printStackTrace();
+                                           } catch (IllegalBlockSizeException e) {
+                                               e.printStackTrace();
+                                           } catch (BadPaddingException e) {
                                                e.printStackTrace();
                                            }
 

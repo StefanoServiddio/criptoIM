@@ -57,8 +57,8 @@ public class Chat extends AppCompatActivity {
     BigInteger[]PuKeyServ;
     String TAG="CriptoIM";
     String crittoState="NO";
-    RSA algRSA=null;
-    RSASend algRSAServ=null;
+    NewRSA myRSA=null;
+    NewRSA algRSAServ=null;
 
 
     SecretKey keyAes;
@@ -99,7 +99,7 @@ public class Chat extends AppCompatActivity {
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
         Intent i=getIntent();
-        algRSAServ=(RSASend)i.getSerializableExtra(TAG);
+        algRSAServ=(NewRSA) i.getSerializableExtra(TAG);
         Bundle bundle=getIntent().getExtras();
         userName=bundle.getString("userName");
         keyAes=(SecretKey)i.getSerializableExtra("AES");
@@ -173,7 +173,7 @@ public class Chat extends AppCompatActivity {
                 byte[] data=mess.convEnvByte(mess);
                 //Scegli il tipo di Criptazione
                 Log.d("TAG", "Modalità di crittazione inviata: "+crittoState);
-                SocketHandler.getOutput().writeObject(algAES.encrypt(data));
+                SocketHandler.getOutput().writeObject(data);
                 SocketHandler.getOutput().flush();
 
 

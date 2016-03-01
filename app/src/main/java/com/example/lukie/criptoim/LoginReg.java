@@ -13,9 +13,10 @@ import android.widget.Toast;
 
 import com.stefano.android.AES;
 import com.stefano.android.Blowfish;
-import com.stefano.android.CryptoKey;
+
 import com.stefano.android.Envelop;
 import com.stefano.android.HmacSha1;
+import com.stefano.android.NewRSA;
 import com.stefano.android.TripleDES;
 
 import java.io.DataOutputStream;
@@ -25,8 +26,16 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.math.BigInteger;
 import java.net.Socket;
+import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.util.Random;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
@@ -41,10 +50,14 @@ public class LoginReg extends AppCompatActivity {
     Button reg;
     Button log;
     String TAG="Cripto Connection";
-    RSA myRSA;
+    NewRSA myRSA;
+
+    SecretKey keyAes;
+    SecretKey keyDes;
+    SecretKey keyBlow;
+    SecretKey keyHmac;
 
 
-    CryptoKey keyGroup=new CryptoKey();
 
 
 
@@ -59,10 +72,11 @@ public class LoginReg extends AppCompatActivity {
 
         log=(Button)findViewById(R.id.login);
         reg=(Button)findViewById(R.id.sign_up);
-        myRSA=new RSA();
+        myRSA=new NewRSA();
+        myRSA.generateRsaKeyPair(1024,BigInteger.probablePrime(15,new Random()));
         Intent i=getIntent();
-        final RSASend algRSAServ=(RSASend)i.getSerializableExtra(TAG);
-        Log.d(TAG,algRSAServ.getE().toString());
+        final NewRSA algRSAServ=(NewRSA) i.getSerializableExtra(TAG);
+
 
 
 
@@ -96,7 +110,7 @@ public class LoginReg extends AppCompatActivity {
                     gone=false;
                 } else {
                      String s;
-
+                    byte[] dataKey;
                     //fase di registrazione
                     //recupero dell'algoritmo
 
@@ -107,29 +121,40 @@ public class LoginReg extends AppCompatActivity {
                                && !(nameClient.getText().toString().equals("")) && !(mailClient.getText().toString().equals(""))) {
                             SocketHandler.getOutput().reset();
 
-                            s = algRSAServ.encryptPu("reg");
-                            SocketHandler.getOutput().writeObject(s);
 
 
-                            s = algRSAServ.encryptPu(userClient.getText().toString());
+                            dataKey= algRSAServ.rsaEncrypt("reg".getBytes(),algRSAServ.getPu());
+                            SocketHandler.getOutput().writeObject(dataKey);
                             SocketHandler.getOutput().flush();
-                            SocketHandler.getOutput().writeObject(s);
+
+
+                            dataKey = algRSAServ.rsaEncrypt(userClient.getText().toString().getBytes(),algRSAServ.getPu());
+                            SocketHandler.getOutput().writeObject(dataKey);
                             Log.d(TAG, "invio: " + userClient.getText());
                             SocketHandler.getOutput().flush();
-                            s = algRSAServ.encryptPu(userClient.getText().toString());
-                            SocketHandler.getOutput().writeObject(s);
+
+                            dataKey = algRSAServ.rsaEncrypt(passwClient.getText().toString().getBytes(),algRSAServ.getPu());
+                            SocketHandler.getOutput().writeObject(dataKey);
                             Log.d(TAG, "invio: " + passwClient.getText());
                             SocketHandler.getOutput().flush();
-                            s = algRSAServ.encryptPu(nameClient.getText().toString());
-                            SocketHandler.getOutput().writeObject(s);
+
+
+
+                            dataKey = algRSAServ.rsaEncrypt(nameClient.getText().toString().getBytes(),algRSAServ.getPu());
+                            SocketHandler.getOutput().writeObject(dataKey);
                             Log.d(TAG, "invio: " + nameClient.getText());
                             SocketHandler.getOutput().flush();
-                            s = algRSAServ.encryptPu(mailClient.getText().toString());
-                            SocketHandler.getOutput().writeObject(s);
+
+
+                            dataKey = algRSAServ.rsaEncrypt(mailClient.getText().toString().getBytes(),algRSAServ.getPu());
+                            SocketHandler.getOutput().writeObject(dataKey);
                             Log.d(TAG, "invio: " + mailClient.getText());
                             SocketHandler.getOutput().flush();
 
 
+
+
+                          //possibilità di ricevere con chiave privata un messaggio di conferma
                             //inputStream = new ObjectInputStream(SocketHandler.getSocket().getInputStream());
                             String check = (String) SocketHandler.getInput().readObject();
                             Log.d(TAG, "ricevo: " + check);
@@ -179,9 +204,21 @@ public class LoginReg extends AppCompatActivity {
                         }
                     } catch (IOException e) {
                         e.printStackTrace();
+                    } //catch (ClassNotFoundException e) {
+                    catch (NoSuchPaddingException e) {
+                        e.printStackTrace();
+                    } catch (NoSuchAlgorithmException e) {
+                        e.printStackTrace();
+                    } catch (InvalidKeyException e) {
+                        e.printStackTrace();
+                    } catch (IllegalBlockSizeException e) {
+                        e.printStackTrace();
+                    } catch (BadPaddingException e) {
+                        e.printStackTrace();
                     } catch (ClassNotFoundException e) {
                         e.printStackTrace();
                     }
+                    // e.printStackTrace();     }
 
 
                 }
@@ -203,49 +240,61 @@ public class LoginReg extends AppCompatActivity {
                     String s;
                    byte[] dataKey;
 
+
+
+
                     if(!(userClient.getText().toString().equals("")) && !(passwClient.getText().toString().equals(""))) {
                         Log.d(TAG, "invio log");
                         SocketHandler.getOutput().reset();
 
-                        s = algRSAServ.encryptPu("log");
-                        SocketHandler.getOutput().writeObject(s);
+                        dataKey= algRSAServ.rsaEncrypt("log".getBytes(),algRSAServ.getPu());
+                        SocketHandler.getOutput().writeObject(dataKey);
                         SocketHandler.getOutput().flush();
-                        s = algRSAServ.encryptPu(userClient.getText().toString());
+
+
+                        dataKey = algRSAServ.rsaEncrypt(userClient.getText().toString().getBytes(),algRSAServ.getPu());
                          String userName=userClient.getText().toString();
 
-                        SocketHandler.getOutput().writeObject(s);
+                        SocketHandler.getOutput().writeObject(dataKey);
                         Log.d(TAG, "invio: " + userClient.getText());
                         SocketHandler.getOutput().flush();
-                        s = algRSAServ.encryptPu(userClient.getText().toString());
-                        SocketHandler.getOutput().writeObject(s);
+
+                        dataKey = algRSAServ.rsaEncrypt(passwClient.getText().toString().getBytes(),algRSAServ.getPu());
+                        SocketHandler.getOutput().writeObject(dataKey);
                         Log.d(TAG, "invio: " + passwClient.getText());
                         SocketHandler.getOutput().flush();
 
-                        Log.d(TAG,"chiave mia E "+myRSA.getPuKey()[0].toString());
-                        Log.d(TAG,"chiave mia N"+myRSA.getPuKey()[1].toString());
-                        BigInteger[] Pukey=myRSA.getPuKey();
-                        SocketHandler.getOutput().writeObject(Pukey);
+                        Log.d(TAG,"Chiave Pubblica Client "+Base64.encodeToString(myRSA.getKPair().getPublic().getEncoded(),Base64.DEFAULT));
+
+                         dataKey=myRSA.getKPair().getPublic().getEncoded();
+                        SocketHandler.getOutput().writeObject(dataKey);
                         SocketHandler.getOutput().flush();
 
-                        //invio chiave AES
-                         Envelop busta=new Envelop();
-                        busta.setText("mio nome");
+                        //Trasmetto tutte le chiavi segrete
 
-                        dataKey=busta.convEnvByte(busta);
-                        Log.d(TAG,"datiiiiiiiii "+dataKey);
-                         dataKey=algRSAServ.encryptPuByte(dataKey);
+                        dataKey = algRSAServ.rsaEncrypt(keyAes.getEncoded(),algRSAServ.getPu());
+                        SocketHandler.getOutput().writeObject(dataKey);
+                        Log.d(TAG, "invio AES: "+Base64.encodeToString(keyAes.getEncoded(),Base64.DEFAULT));
+                        SocketHandler.getOutput().flush();
 
-                        DataOutputStream dOut = new DataOutputStream(SocketHandler.getSocket().getOutputStream());
+                        dataKey = algRSAServ.rsaEncrypt(keyDes.getEncoded(),algRSAServ.getPu());
+                        SocketHandler.getOutput().writeObject(dataKey);
+                        Log.d(TAG, "invio DES: "+Base64.encodeToString(keyDes.getEncoded(),Base64.DEFAULT));
+                        SocketHandler.getOutput().flush();
 
-                        dOut.writeInt(dataKey.length); // write length of the message
-                        dOut.write(dataKey);
+                        dataKey = algRSAServ.rsaEncrypt(keyBlow.getEncoded(),algRSAServ.getPu());
+                        SocketHandler.getOutput().writeObject(dataKey);
+                        Log.d(TAG, "invio Blowfish: "+Base64.encodeToString(keyBlow.getEncoded(),Base64.DEFAULT));
+                        SocketHandler.getOutput().flush();
+
+                        dataKey = algRSAServ.rsaEncrypt(keyHmac.getEncoded(),algRSAServ.getPu());
+                        SocketHandler.getOutput().writeObject(dataKey);
+                        Log.d(TAG, "invio HmacSha1: "+Base64.encodeToString(keyHmac.getEncoded(),Base64.DEFAULT));
+                        SocketHandler.getOutput().flush();
 
 
-
-
-
-                        String check = (String) SocketHandler.getInput().readObject();
-                        check=algRSAServ.decryptPu(check);
+                        dataKey = (byte[]) SocketHandler.getInput().readObject();
+                        String check=new String(myRSA.rsaDecrypt(dataKey,myRSA.getKPair().getPrivate()));
                         Log.d(TAG, "ricevo: " + check );
                         if(check.equals("OK"))
                         {
@@ -254,12 +303,11 @@ public class LoginReg extends AppCompatActivity {
                             toast.show();
                             Intent i=new Intent(getApplicationContext(),Chat.class);
                             i.putExtra(TAG,algRSAServ);
-                            i.putExtra("AES", keyGroup.getAes());
-                            Log.d(TAG,"chiave AES: "+keyGroup.getAes().toString());
-                            i.putExtra("DES3", keyGroup.getDes());
-                            Log.d(TAG,"chiave DES: "+keyGroup.getDes().toString());
-                            i.putExtra("Blowfish",keyGroup.getBlow());
-                            i.putExtra("Hmac", keyGroup.getHmac());
+                            i.putExtra("AES",keyAes);
+                            i.putExtra("DES3",keyDes);
+                            i.putExtra("Blowfish",keyBlow);
+                            i.putExtra("Hmac",keyBlow);
+
                             i.putExtra("userName",userName);
                             startActivity(i);
 
@@ -295,6 +343,16 @@ public class LoginReg extends AppCompatActivity {
                     e.printStackTrace();
                 } catch (ClassNotFoundException e) {
                     e.printStackTrace();
+                } catch (NoSuchPaddingException e) {
+                    e.printStackTrace();
+                } catch (NoSuchAlgorithmException e) {
+                    e.printStackTrace();
+                } catch (InvalidKeyException e) {
+                    e.printStackTrace();
+                } catch (IllegalBlockSizeException e) {
+                    e.printStackTrace();
+                } catch (BadPaddingException e) {
+                    e.printStackTrace();
                 }
 
 
@@ -304,29 +362,23 @@ public class LoginReg extends AppCompatActivity {
     }
     private void createKey() throws NoSuchAlgorithmException {
 
-        SecretKey keyAes;
-        SecretKey keyDes;
-        SecretKey keyBlow;
-        SecretKey keyHmac;
+
 
         KeyGenerator kg=KeyGenerator.getInstance("AES");
         kg.init(128);
         keyAes=kg.generateKey();
-        keyGroup.setAes(keyAes);
+
 
         kg=KeyGenerator.getInstance("DESede");
         kg.init(112);
         keyDes=kg.generateKey();
-        keyGroup.setDes(keyDes);
 
         kg=KeyGenerator.getInstance("Blowfish");
         kg.init(128);
         keyBlow=kg.generateKey();
-        keyGroup.setBlow(keyBlow);
         kg=KeyGenerator.getInstance("HmacSHA1");
         kg.init(128);
         keyHmac=kg.generateKey();
-        keyGroup.setHmac(keyHmac);
 
 
     }
