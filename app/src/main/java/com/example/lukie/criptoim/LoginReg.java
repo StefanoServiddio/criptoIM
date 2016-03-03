@@ -57,7 +57,7 @@ public class LoginReg extends AppCompatActivity {
     SecretKey keyBlow;
     SecretKey keyHmac;
 
-
+    NewRSA algRSAServ;
 
 
 
@@ -75,7 +75,7 @@ public class LoginReg extends AppCompatActivity {
         myRSA=new NewRSA();
         myRSA.generateRsaKeyPair(1024,BigInteger.probablePrime(15,new Random()));
         Intent i=getIntent();
-        final NewRSA algRSAServ=(NewRSA) i.getSerializableExtra(TAG);
+        algRSAServ=(NewRSA) i.getSerializableExtra(TAG);
 
 
 
@@ -292,6 +292,12 @@ public class LoginReg extends AppCompatActivity {
                         Log.d(TAG, "invio HmacSha1: "+Base64.encodeToString(keyHmac.getEncoded(),Base64.DEFAULT));
                         SocketHandler.getOutput().flush();
 
+                       // Envelop busta=new Envelop();
+                       // busta.setText("sto provando ma non va");
+                        //dataKey=busta.convEnvByte(busta);
+                        dataKey=new AES(keyAes).encrypt("Ciao Stefano".getBytes());
+                        SocketHandler.getOutput().writeObject(dataKey);
+                        SocketHandler.getOutput().flush();
 
                         dataKey = (byte[]) SocketHandler.getInput().readObject();
                         String check=new String(myRSA.rsaDecrypt(dataKey,myRSA.getKPair().getPrivate()));
@@ -302,7 +308,7 @@ public class LoginReg extends AppCompatActivity {
                             toast = Toast.makeText(context, text, duration);
                             toast.show();
                             Intent i=new Intent(getApplicationContext(),Chat.class);
-                            i.putExtra(TAG,algRSAServ);
+                            i.putExtra("PuServer",algRSAServ.getPu());
                             i.putExtra("AES",keyAes);
                             i.putExtra("DES3",keyDes);
                             i.putExtra("Blowfish",keyBlow);

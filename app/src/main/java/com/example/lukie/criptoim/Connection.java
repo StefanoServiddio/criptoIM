@@ -72,8 +72,9 @@ public class Connection extends AppCompatActivity {
                                            try {
                                                if(SocketHandler.getSocket()!=null){
                                                    SocketHandler.setInput(new ObjectInputStream(SocketHandler.getSocket().getInputStream()));
-                                               algRSAServ.setKPu((PublicKey) SocketHandler.getInput().readObject());
-                                               // algRSA=new RSA(PuKeyServ[0],PuKeyServ[1]);
+                                               //ricevo la chiave pubblica dal server
+                                                   algRSAServ.setKPu((PublicKey) SocketHandler.getInput().readObject());
+                                               //stampo chiave pubblica del server
                                                Log.d(TAG, "Chiave Pubblica del Server: " + Base64.encodeToString(algRSAServ.getPu().getEncoded(),Base64.DEFAULT));
 
 

@@ -9,6 +9,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.ButtonBarLayout;
 import android.text.method.ScrollingMovementMethod;
+import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -29,6 +30,7 @@ import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.util.Random;
 import com.stefano.android.*;
 
@@ -56,11 +58,11 @@ public class Chat extends AppCompatActivity {
     String userName;
     BigInteger[]PuKeyServ;
     String TAG="CriptoIM";
-    String crittoState="NO";
+    Envelop.Mode crittoState=Envelop.Mode.AES;
     NewRSA myRSA=null;
     NewRSA algRSAServ=null;
 
-
+    PublicKey keyPuServer;
     SecretKey keyAes;
     SecretKey keyDes;
     SecretKey keyBlow;
@@ -99,21 +101,28 @@ public class Chat extends AppCompatActivity {
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
         Intent i=getIntent();
-        algRSAServ=(NewRSA) i.getSerializableExtra(TAG);
+
+        keyPuServer=(PublicKey)i.getSerializableExtra("PuServer");
+        Log.d(TAG,"Chiave pubblica del Server"+Base64.encodeToString(keyPuServer.getEncoded(),Base64.DEFAULT));
         Bundle bundle=getIntent().getExtras();
         userName=bundle.getString("userName");
         keyAes=(SecretKey)i.getSerializableExtra("AES");
-        keyAes=(SecretKey)i.getSerializableExtra("DES3");
-        keyAes=(SecretKey)i.getSerializableExtra("Blowfish");
-        keyAes=(SecretKey)i.getSerializableExtra("Hmac");
+        keyDes=(SecretKey)i.getSerializableExtra("DES3");
+        keyBlow=(SecretKey)i.getSerializableExtra("Blowfish");
+        keyHmac=(SecretKey)i.getSerializableExtra("Hmac");
         Log.d(TAG,"il mio nome è "+userName);
-        Log.d(TAG,"chiave AES:  "+new String(String.valueOf(keyAes)));
+        Log.d(TAG,"chiave AES:  "+ Base64.encodeToString(keyAes.getEncoded(),Base64.DEFAULT));
 
 
         try {
 
 
             //genero algoritmi che userà anche il server
+            algRSAServ=new NewRSA();
+            algRSAServ.setKPu(keyPuServer);
+            //controllo chiave Pubblica del Server
+
+
             algAES=new AES(keyAes);
             algDes=new TripleDES(keyDes);
             algBlow=new Blowfish(keyBlow);
@@ -152,32 +161,199 @@ public class Chat extends AppCompatActivity {
 
 
     }
+    private void sendMessChangeCrypto(){
+        //devi mandare un messaggio di modifica sulla crittazione
+        Envelop mess = new Envelop();
+        et.setText("Change Crypto");
+        Envelop.Mode crittoNow=Envelop.Mode.NO;
+        try {
 
+            switch (crittoState) {
+
+                case AES:
+
+                    mess.setFrom(userName);
+                    mess.setText(sent);
+                    mess.setMac(algHMAC.hashing(mess.getText().getBytes()));
+                    //modalità di criptazione da acquisire dall'activity crypto
+                    mess.setCripto(crittoNow);
+                    Log.d(TAG, "ho scritto: " + sent);
+                    //conversione in byte
+
+                    byte[] data = mess.convEnvByte(mess);
+
+                    //Scegli il tipo di Criptazione
+                    Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
+                    data = algAES.encrypt(data);
+                    SocketHandler.getOutput().writeLong(data.length);
+                    SocketHandler.getOutput().writeObject(data);
+                    SocketHandler.getOutput().flush();
+                    crittoState=crittoNow;
+
+                    break;
+
+                case DES3:
+
+                    mess.setFrom(userName);
+                    mess.setText(sent);
+                    mess.setMac(algHMAC.hashing(mess.getText().getBytes()));
+                    //modalità di criptazione da acquisire dall'activity crypto
+                    mess.setCripto(crittoNow);
+                    Log.d(TAG, "ho scritto: " + sent);
+                    //conversione in byte
+
+                    data = mess.convEnvByte(mess);
+
+                    //Scegli il tipo di Criptazione
+                    Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
+                    data = algDes.encrypt(data);
+                    SocketHandler.getOutput().writeLong(data.length);
+                    SocketHandler.getOutput().writeObject(data);
+                    SocketHandler.getOutput().flush();
+                    crittoState=crittoNow;
+                    break;
+
+                case Blow:
+                    mess.setFrom(userName);
+                    mess.setText(sent);
+                    mess.setMac(algHMAC.hashing(mess.getText().getBytes()));
+                    //modalità di criptazione da acquisire dall'activity crypto
+                    mess.setCripto(crittoNow);
+                    Log.d(TAG, "ho scritto: " + sent);
+                    //conversione in byte
+
+                    data = mess.convEnvByte(mess);
+
+                    //Scegli il tipo di Criptazione
+                    Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
+                    data = algBlow.encrypt(data);
+                    SocketHandler.getOutput().writeLong(data.length);
+                    SocketHandler.getOutput().writeObject(data);
+                    SocketHandler.getOutput().flush();
+                    crittoState=crittoNow;
+                    break;
+            }
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
 
 
     private void sendMess(){
 
         sent=et.getText().toString();
-        crittoState="NO";
+        Envelop mess = new Envelop();
+
         if(!sent.equals("")) {
 
             try {
-                Envelop mess=new Envelop();
-                mess.setFrom(userName);
-                mess.setText(sent);
 
-                //modalità di criptazione da acquisire dall'activity crypto
-                mess.setCripto(Envelop.Mode.NO);
-                Log.d(TAG,"ho scritto: "+sent);
-                //conversione in byte
-                byte[] data=mess.convEnvByte(mess);
-                //Scegli il tipo di Criptazione
-                Log.d("TAG", "Modalità di crittazione inviata: "+crittoState);
-                SocketHandler.getOutput().writeObject(data);
-                SocketHandler.getOutput().flush();
+                switch (crittoState) {
+
+                    case AES:
+
+                        mess.setFrom(userName);
+                        mess.setText(sent);
+
+                        byte[] digest=algHMAC.hashing(Base64.encode("Ciao Stefano".getBytes("UTF-8"),Base64.DEFAULT));
+                        //controllo sul digest
+                        Log.d(TAG,"lunghezza Dati Digest: "+digest.length+" byte"+"\n Digest inviato: "
+                                +Base64.encodeToString(digest,Base64.DEFAULT));
 
 
-                Log.d(TAG,"ho scritto: "+sent);
+                        mess.setMac(algRSAServ.rsaEncrypt(digest,algRSAServ.getPu()));
+                        //modalità di criptazione da acquisire dall'activity crypto
+                        mess.setCripto(crittoState);
+
+                        //conversione in byte
+
+                        byte[] data = mess.convEnvByte(mess);
+
+                        //Scegli il tipo di Criptazione
+                        Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
+
+                        Log.d(TAG,"lunghezza Dati"+data.length+"\n Dati inviati: "+Base64.encodeToString(data,Base64.DEFAULT));
+                        data=algAES.encrypt(data);
+                        Log.d(TAG,"lunghezza Dati Criptati: "+data.length);
+                        Log.d(TAG,"Dati AES Criptati: "+Base64.encodeToString(data,Base64.DEFAULT));
+                        SocketHandler.getOutput().writeLong(data.length);
+                        SocketHandler.getOutput().writeObject(data);
+                        SocketHandler.getOutput().flush();
+                        Log.d(TAG, "ho scritto AES: " + sent);
+                        break;
+
+                    case DES3:
+
+                        mess.setFrom(userName);
+                        mess.setText(sent);
+                        //mess.setMac(algHMAC.hashing(mess.getText().getBytes()));
+                        //modalità di criptazione da acquisire dall'activity crypto
+                        mess.setCripto(crittoState);
+                        Log.d(TAG, "ho scritto DES: " + sent);
+                        //conversione in byte
+
+                         data = mess.convEnvByte(mess);
+
+                        //Scegli il tipo di Criptazione
+                        Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
+                        data=algDes.encrypt(data);
+                        SocketHandler.getOutput().writeLong(data.length);
+                        SocketHandler.getOutput().writeObject(data);
+                        SocketHandler.getOutput().flush();
+                        break;
+
+                    case Blow:
+                        mess.setFrom(userName);
+                        mess.setText(sent);
+                       // mess.setMac(algHMAC.hashing(mess.getText().getBytes()));
+                        //modalità di criptazione da acquisire dall'activity crypto
+                        mess.setCripto(crittoState);
+                        Log.d(TAG, "ho scritto Blow: " + sent);
+                        //conversione in byte
+
+                        data = mess.convEnvByte(mess);
+
+                        //Scegli il tipo di Criptazione
+                        Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
+                        data=algBlow.encrypt(data);
+                        SocketHandler.getOutput().writeLong(data.length);
+                        SocketHandler.getOutput().writeObject(data);
+                        SocketHandler.getOutput().flush();
+
+
+                        break;
+
+
+
+                    default:
+
+                    mess.setFrom(userName);
+                    mess.setText(sent);
+                    //mess.setMac(algHMAC.hashing(mess.getText().getBytes()));
+                    //modalità di criptazione da acquisire dall'activity crypto
+                    mess.setCripto(Envelop.Mode.NO);
+                    Log.d(TAG, "ho scritto NO Crypting: " + sent);
+                    //conversione in byte
+
+                    data = mess.convEnvByte(mess);
+
+                    //Scegli il tipo di Criptazione
+                    Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
+                    SocketHandler.getOutput().writeLong(data.length);
+                    SocketHandler.getOutput().writeObject(data);
+                    SocketHandler.getOutput().flush();
+                    break;
+                }
+
+
+
+
+
                 et.getText().clear();
 
             } catch (UnsupportedEncodingException e) {
@@ -206,6 +382,26 @@ public class Chat extends AppCompatActivity {
 
                    if( (dataRec = (byte[])SocketHandler.getInput().readObject())!=null){
                        //Decripta e converti i byte in envelop
+
+                       switch (crittoState)
+                       {
+                           case AES:
+
+                               Log.d(TAG,"Dati AES Criptati: "+Base64.encodeToString(dataRec,Base64.DEFAULT)+"\nlunghezza: "
+                               +dataRec.length);
+                               dataRec=algAES.decrypt(dataRec);
+                               break;
+                           case DES3:
+                               dataRec=algDes.decrypt(dataRec);
+                               break;
+                           case Blow:
+                               dataRec=algBlow.decrypt(dataRec);
+                               break;
+                           default:
+                               break;
+
+                       }
+
 
 
                        e=e.convByteEnv(dataRec);
