@@ -26,6 +26,7 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.math.BigInteger;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyPair;
@@ -57,6 +58,9 @@ public class LoginReg extends AppCompatActivity {
     SecretKey keyBlow;
     SecretKey keyHmac;
 
+
+    AES nuovo;
+
     NewRSA algRSAServ;
 
 
@@ -84,6 +88,8 @@ public class LoginReg extends AppCompatActivity {
         try {
             createKey();
         } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (NoSuchPaddingException e) {
             e.printStackTrace();
         }
         //genero algoritmi che userà anche il server
@@ -277,6 +283,11 @@ public class LoginReg extends AppCompatActivity {
                         Log.d(TAG, "invio AES: "+Base64.encodeToString(keyAes.getEncoded(),Base64.DEFAULT));
                         SocketHandler.getOutput().flush();
 
+                        dataKey = algRSAServ.rsaEncrypt(nuovo.getIv(),algRSAServ.getPu());
+                        SocketHandler.getOutput().writeObject(dataKey);
+                        Log.d(TAG, "invio Iv: "+Base64.encodeToString(nuovo.getIv(),Base64.DEFAULT));
+                        SocketHandler.getOutput().flush();
+
                         dataKey = algRSAServ.rsaEncrypt(keyDes.getEncoded(),algRSAServ.getPu());
                         SocketHandler.getOutput().writeObject(dataKey);
                         Log.d(TAG, "invio DES: "+Base64.encodeToString(keyDes.getEncoded(),Base64.DEFAULT));
@@ -292,12 +303,10 @@ public class LoginReg extends AppCompatActivity {
                         Log.d(TAG, "invio HmacSha1: "+Base64.encodeToString(keyHmac.getEncoded(),Base64.DEFAULT));
                         SocketHandler.getOutput().flush();
 
-                       // Envelop busta=new Envelop();
-                       // busta.setText("sto provando ma non va");
-                        //dataKey=busta.convEnvByte(busta);
-                        dataKey=new AES(keyAes).encrypt("Ciao Stefano".getBytes());
-                        SocketHandler.getOutput().writeObject(dataKey);
-                        SocketHandler.getOutput().flush();
+
+
+
+
 
                         dataKey = (byte[]) SocketHandler.getInput().readObject();
                         String check=new String(myRSA.rsaDecrypt(dataKey,myRSA.getKPair().getPrivate()));
@@ -310,15 +319,16 @@ public class LoginReg extends AppCompatActivity {
                             Intent i=new Intent(getApplicationContext(),Chat.class);
                             i.putExtra("PuServer",algRSAServ.getPu());
                             i.putExtra("AES",keyAes);
+                            i.putExtra("AesIv",nuovo.getIv());
                             i.putExtra("DES3",keyDes);
                             i.putExtra("Blowfish",keyBlow);
-                            i.putExtra("Hmac",keyBlow);
+                            i.putExtra("Hmac",keyHmac);
 
                             i.putExtra("userName",userName);
                             startActivity(i);
 
                         }
-                        else {
+                        else if (check.equals("NoUser")){
                             CharSequence text = "LOGIN ERROR!";
                             toast = Toast.makeText(context, text, duration);
                             toast.show();
@@ -366,24 +376,25 @@ public class LoginReg extends AppCompatActivity {
         });
 
     }
-    private void createKey() throws NoSuchAlgorithmException {
+    private void createKey() throws NoSuchAlgorithmException, NoSuchPaddingException {
 
 
 
         KeyGenerator kg=KeyGenerator.getInstance("AES");
-        kg.init(128);
+        kg.init(256);
         keyAes=kg.generateKey();
+        nuovo=new AES(keyAes);
 
 
         kg=KeyGenerator.getInstance("DESede");
-        kg.init(112);
+        kg.init(168);
         keyDes=kg.generateKey();
 
         kg=KeyGenerator.getInstance("Blowfish");
         kg.init(128);
         keyBlow=kg.generateKey();
         kg=KeyGenerator.getInstance("HmacSHA1");
-        kg.init(128);
+        kg.init(160);
         keyHmac=kg.generateKey();
 
 
