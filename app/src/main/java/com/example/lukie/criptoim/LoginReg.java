@@ -60,7 +60,8 @@ public class LoginReg extends AppCompatActivity {
 
 
     AES nuovo;
-
+    TripleDES nuovo2;
+    Blowfish nuovo3;
     NewRSA algRSAServ;
 
 
@@ -285,7 +286,7 @@ public class LoginReg extends AppCompatActivity {
 
                         dataKey = algRSAServ.rsaEncrypt(nuovo.getIv(),algRSAServ.getPu());
                         SocketHandler.getOutput().writeObject(dataKey);
-                        Log.d(TAG, "invio Iv: "+Base64.encodeToString(nuovo.getIv(),Base64.DEFAULT));
+                        Log.d(TAG, "invio Iv AES: "+Base64.encodeToString(nuovo.getIv(),Base64.DEFAULT));
                         SocketHandler.getOutput().flush();
 
                         dataKey = algRSAServ.rsaEncrypt(keyDes.getEncoded(),algRSAServ.getPu());
@@ -293,9 +294,19 @@ public class LoginReg extends AppCompatActivity {
                         Log.d(TAG, "invio DES: "+Base64.encodeToString(keyDes.getEncoded(),Base64.DEFAULT));
                         SocketHandler.getOutput().flush();
 
+                        dataKey = algRSAServ.rsaEncrypt(nuovo2.getIv(),algRSAServ.getPu());
+                        SocketHandler.getOutput().writeObject(dataKey);
+                        Log.d(TAG, "invio Iv DES: "+Base64.encodeToString(nuovo2.getIv(),Base64.DEFAULT));
+                        SocketHandler.getOutput().flush();
+
                         dataKey = algRSAServ.rsaEncrypt(keyBlow.getEncoded(),algRSAServ.getPu());
                         SocketHandler.getOutput().writeObject(dataKey);
                         Log.d(TAG, "invio Blowfish: "+Base64.encodeToString(keyBlow.getEncoded(),Base64.DEFAULT));
+                        SocketHandler.getOutput().flush();
+
+                        dataKey = algRSAServ.rsaEncrypt(nuovo3.getIv(),algRSAServ.getPu());
+                        SocketHandler.getOutput().writeObject(dataKey);
+                        Log.d(TAG, "invio Iv Blow: "+Base64.encodeToString(nuovo3.getIv(),Base64.DEFAULT));
                         SocketHandler.getOutput().flush();
 
                         dataKey = algRSAServ.rsaEncrypt(keyHmac.getEncoded(),algRSAServ.getPu());
@@ -318,10 +329,13 @@ public class LoginReg extends AppCompatActivity {
                             toast.show();
                             Intent i=new Intent(getApplicationContext(),Chat.class);
                             i.putExtra("PuServer",algRSAServ.getPu());
+                            i.putExtra("PrKclient",myRSA.getKPair().getPrivate());
                             i.putExtra("AES",keyAes);
                             i.putExtra("AesIv",nuovo.getIv());
                             i.putExtra("DES3",keyDes);
+                            i.putExtra("DesIv",nuovo2.getIv());
                             i.putExtra("Blowfish",keyBlow);
+                            i.putExtra("BlowIv",nuovo3.getIv());
                             i.putExtra("Hmac",keyHmac);
 
                             i.putExtra("userName",userName);
@@ -389,10 +403,12 @@ public class LoginReg extends AppCompatActivity {
         kg=KeyGenerator.getInstance("DESede");
         kg.init(168);
         keyDes=kg.generateKey();
+        nuovo2=new TripleDES(keyDes);
 
         kg=KeyGenerator.getInstance("Blowfish");
         kg.init(128);
         keyBlow=kg.generateKey();
+        nuovo3=new Blowfish(keyBlow);
         kg=KeyGenerator.getInstance("HmacSHA1");
         kg.init(160);
         keyHmac=kg.generateKey();

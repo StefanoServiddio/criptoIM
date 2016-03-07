@@ -21,7 +21,10 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.security.KeyPair;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 import java.security.PublicKey;
 
 import com.stefano.android.*;
@@ -49,8 +52,11 @@ public class Chat extends AppCompatActivity {
     NewRSA algRSAServ=null;
 
     PublicKey keyPuServer;
+    PrivateKey keyPr;
     SecretKey keyAes;
     byte[] aesIv;
+    byte[] desIv;
+    byte[] blowIv;
     SecretKey keyDes;
     SecretKey keyBlow;
     SecretKey keyHmac;
@@ -65,7 +71,7 @@ public class Chat extends AppCompatActivity {
     ObjectInputStream inputStream = null;
     ObjectOutputStream outputStream = null;
 
-    String to;
+    String to="";
 
 
     int count=0;
@@ -91,13 +97,17 @@ public class Chat extends AppCompatActivity {
         Intent i = getIntent();
 
         keyPuServer = (PublicKey) i.getSerializableExtra("PuServer");
+        keyPr=(PrivateKey)i.getSerializableExtra("PrKclient");
+        Log.d(TAG,"Chiave privata client RSA"+Base64.encodeToString(keyPr.getEncoded(),Base64.DEFAULT));
         Log.d(TAG, "Chiave pubblica del Server" + Base64.encodeToString(keyPuServer.getEncoded(), Base64.DEFAULT));
         Bundle bundle = getIntent().getExtras();
         userName = bundle.getString("userName");
         keyAes = (SecretKey) i.getSerializableExtra("AES");
         aesIv = i.getByteArrayExtra("AesIv");
         keyDes = (SecretKey) i.getSerializableExtra("DES3");
+        desIv = i.getByteArrayExtra("DesIv");
         keyBlow = (SecretKey) i.getSerializableExtra("Blowfish");
+        blowIv = i.getByteArrayExtra("BlowIv");
         keyHmac = (SecretKey) i.getSerializableExtra("Hmac");
         Log.d(TAG, "il mio nome è " + userName);
         Log.d(TAG, "chiave AES:  " + Base64.encodeToString(keyAes.getEncoded(), Base64.DEFAULT));
@@ -111,10 +121,11 @@ public class Chat extends AppCompatActivity {
             algRSAServ.setKPu(keyPuServer);
             //controllo chiave Pubblica del Server
 
-
+            myRSA=new NewRSA();
+            myRSA.setPr(keyPr);
             algAES = new AES(keyAes,aesIv);
-            algDes = new TripleDES(keyDes);
-            algBlow = new Blowfish(keyBlow);
+            algDes = new TripleDES(keyDes,desIv);
+            algBlow = new Blowfish(keyBlow,blowIv);
             algHMAC = new HmacSha1(keyHmac);
 
 
@@ -147,18 +158,23 @@ public class Chat extends AppCompatActivity {
     }
         protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 
-        // TODO Auto-generated method stub
+
 
             if (requestCode == 1) {
                 if(resultCode == Chat.RESULT_OK){
                     String result=data.getStringExtra("to");
                     Envelop.Mode newcritto=(Envelop.Mode)data.getSerializableExtra("mode");
+
                     Log.d(TAG,"ho ricevuto da cripto "+result);
                     Log.d(TAG,"Cripto Mode "+newcritto);
                     if(newcritto!=crittoState)
                     {
 
                         sendMessChangeCrypto(newcritto);
+                    }
+                    if(!result.equals(to))
+                    {
+                        to=result;
                     }
 
                 }
@@ -178,6 +194,7 @@ public class Chat extends AppCompatActivity {
         mess.setFrom(userName);
         mess.setTo("");
         mess.setText("Change Crypto");
+        byte[] digest;
         Log.d(TAG, "ho scritto: "+mess.getText()+" in "+newcritto);
 
         try {
@@ -189,6 +206,15 @@ public class Chat extends AppCompatActivity {
 
                    // mess.setMac(algHMAC.hashing(mess.getText().getBytes()));
                     //modalità di criptazione da acquisire dall'activity crypto
+                    digest=algHMAC.hashing(mess.getText().getBytes());
+                    //   controllo sul digest
+                    Log.d(TAG,"lunghezza Dati Digest: "+digest.length+" byte"+"\n Digest inviato: "
+                            +Base64.encodeToString(digest,Base64.DEFAULT));
+
+
+                    mess.setMac(algRSAServ.rsaEncrypt(digest,algRSAServ.getPu()));
+                    //modalità di criptazione da acquisire dall'activity crypto
+
                     mess.setCripto(newcritto);
 
                     //conversione in byte
@@ -197,7 +223,7 @@ public class Chat extends AppCompatActivity {
                     //Scegli il tipo di Criptazione
                     Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
                     data = algAES.encrypt(data);
-                    SocketHandler.getOutput().writeLong(data.length);
+
                     SocketHandler.getOutput().writeObject(data);
                     SocketHandler.getOutput().flush();
                     crittoState=newcritto;
@@ -209,6 +235,15 @@ public class Chat extends AppCompatActivity {
                    // mess.setMac(algHMAC.hashing(mess.getText().getBytes()));
                     //modalità di criptazione da acquisire dall'activity crypto
                     mess.setCripto(newcritto);
+                    digest=algHMAC.hashing(mess.getText().getBytes());
+                    //   controllo sul digest
+                    Log.d(TAG,"lunghezza Dati Digest: "+digest.length+" byte"+"\n Digest inviato: "
+                            +Base64.encodeToString(digest,Base64.DEFAULT));
+
+
+                    mess.setMac(algRSAServ.rsaEncrypt(digest,algRSAServ.getPu()));
+                    //modalità di criptazione da acquisire dall'activity crypto
+
 
                     //conversione in byte
 
@@ -217,7 +252,7 @@ public class Chat extends AppCompatActivity {
                     //Scegli il tipo di Criptazione
                     Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
                     data = algDes.encrypt(data);
-                    SocketHandler.getOutput().writeLong(data.length);
+
                     SocketHandler.getOutput().writeObject(data);
                     SocketHandler.getOutput().flush();
                     crittoState=newcritto;
@@ -228,6 +263,15 @@ public class Chat extends AppCompatActivity {
                    // mess.setMac(algHMAC.hashing(mess.getText().getBytes()));
                     //modalità di criptazione da acquisire dall'activity crypto
                     mess.setCripto(newcritto);
+                    digest=algHMAC.hashing(mess.getText().getBytes());
+                    //   controllo sul digest
+                    Log.d(TAG,"lunghezza Dati Digest: "+digest.length+" byte"+"\n Digest inviato: "
+                            +Base64.encodeToString(digest,Base64.DEFAULT));
+
+
+                    mess.setMac(algRSAServ.rsaEncrypt(digest,algRSAServ.getPu()));
+                    //modalità di criptazione da acquisire dall'activity crypto
+
 
                     //conversione in byte
 
@@ -236,7 +280,7 @@ public class Chat extends AppCompatActivity {
                     //Scegli il tipo di Criptazione
                     Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
                     data = algBlow.encrypt(data);
-                    SocketHandler.getOutput().writeLong(data.length);
+
                     SocketHandler.getOutput().writeObject(data);
                     SocketHandler.getOutput().flush();
                     crittoState=newcritto;
@@ -247,9 +291,18 @@ public class Chat extends AppCompatActivity {
                     //mess.setMac(algHMAC.hashing(mess.getText().getBytes()));
                     //modalità di criptazione da acquisire dall'activity crypto
                     mess.setCripto(newcritto);
+                    digest=algHMAC.hashing(mess.getText().getBytes());
+                    //   controllo sul digest
+                    Log.d(TAG,"lunghezza Dati Digest: "+digest.length+" byte"+"\n Digest inviato: "
+                            +Base64.encodeToString(digest,Base64.DEFAULT));
+
+
+                    mess.setMac(algRSAServ.rsaEncrypt(digest,algRSAServ.getPu()));
+                    //modalità di criptazione da acquisire dall'activity crypto
+
                     data = mess.convEnvByte(mess);
                     Log.d(TAG, "ho scritto: " + sent);
-                    SocketHandler.getOutput().writeLong(data.length);
+
                     SocketHandler.getOutput().writeObject(data);
                     SocketHandler.getOutput().flush();
                     crittoState=newcritto;
@@ -272,7 +325,8 @@ public class Chat extends AppCompatActivity {
 
         sent=et.getText().toString();
         Envelop mess = new Envelop();
-
+        mess.setTo(to);
+        byte[] digest;
         if(!sent.equals("")) {
 
             try {
@@ -285,7 +339,7 @@ public class Chat extends AppCompatActivity {
                         mess.setText(sent);
 
 
-                        byte[] digest=algHMAC.hashing(mess.getText().getBytes());
+                        digest=algHMAC.hashing(mess.getText().getBytes());
                      //   controllo sul digest
                         Log.d(TAG,"lunghezza Dati Digest: "+digest.length+" byte"+"\n Digest inviato: "
                                 +Base64.encodeToString(digest,Base64.DEFAULT));
@@ -293,7 +347,8 @@ public class Chat extends AppCompatActivity {
 
                        mess.setMac(algRSAServ.rsaEncrypt(digest,algRSAServ.getPu()));
                         //modalità di criptazione da acquisire dall'activity crypto
-                        mess.setMac(mess.getMac());
+                        Log.d(TAG,"Controllo chiave pubblica Server: "+
+                                Base64.encodeToString(algRSAServ.getPu().getEncoded(),Base64.DEFAULT));
                         mess.setCripto(crittoState);
 
                         //conversione in byte
@@ -308,7 +363,7 @@ public class Chat extends AppCompatActivity {
                         data=algAES.encrypt(data);
                         Log.d(TAG,"lunghezza Dati Criptati: "+data.length);
                         Log.d(TAG,"Dati AES Criptati: "+Base64.encodeToString(data,Base64.DEFAULT));
-                        SocketHandler.getOutput().writeLong(data.length);
+
                         SocketHandler.getOutput().writeObject(data);
                         SocketHandler.getOutput().flush();
                         Log.d(TAG, "ho scritto AES: " + sent);
@@ -318,8 +373,20 @@ public class Chat extends AppCompatActivity {
 
                         mess.setFrom(userName);
                         mess.setText(sent);
-                        //mess.setMac(algHMAC.hashing(mess.getText().getBytes()));
+
+                        //   controllo sul digest
+                         digest=algHMAC.hashing(mess.getText().getBytes());
+                        //   controllo sul digest
+                        Log.d(TAG,"lunghezza Dati Digest: "+digest.length+" byte"+"\n Digest inviato: "
+                                +Base64.encodeToString(digest,Base64.DEFAULT));
+
+                        Log.d(TAG,"Controllo chiave pubblica Server: "+
+                                Base64.encodeToString(algRSAServ.getPu().getEncoded(),Base64.DEFAULT));
+                        mess.setMac(algRSAServ.rsaEncrypt(digest,algRSAServ.getPu()));
+
+
                         //modalità di criptazione da acquisire dall'activity crypto
+
                         mess.setCripto(crittoState);
                         Log.d(TAG, "ho scritto DES: " + sent);
                         //conversione in byte
@@ -329,7 +396,7 @@ public class Chat extends AppCompatActivity {
                         //Scegli il tipo di Criptazione
                         Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
                         data=algDes.encrypt(data);
-                        SocketHandler.getOutput().writeLong(data.length);
+
                         SocketHandler.getOutput().writeObject(data);
                         SocketHandler.getOutput().flush();
                         break;
@@ -337,8 +404,16 @@ public class Chat extends AppCompatActivity {
                     case Blow:
                         mess.setFrom(userName);
                         mess.setText(sent);
-                       // mess.setMac(algHMAC.hashing(mess.getText().getBytes()));
-                        //modalità di criptazione da acquisire dall'activity crypto
+
+                        //   controllo sul digest
+                        digest=algHMAC.hashing(mess.getText().getBytes());
+
+                        Log.d(TAG,"lunghezza Dati Digest: "+digest.length+" byte"+"\n Digest inviato: "
+                                +Base64.encodeToString(digest,Base64.DEFAULT));
+                        Log.d(TAG,"Controllo chiave pubblica Server: "+
+                                Base64.encodeToString(algRSAServ.getPu().getEncoded(),Base64.DEFAULT));
+                        mess.setMac(algRSAServ.rsaEncrypt(digest,algRSAServ.getPu()));
+
                         mess.setCripto(crittoState);
                         Log.d(TAG, "ho scritto Blow: " + sent);
                         //conversione in byte
@@ -348,7 +423,7 @@ public class Chat extends AppCompatActivity {
                         //Scegli il tipo di Criptazione
                         Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
                         data=algBlow.encrypt(data);
-                        SocketHandler.getOutput().writeLong(data.length);
+
                         SocketHandler.getOutput().writeObject(data);
                         SocketHandler.getOutput().flush();
 
@@ -361,8 +436,15 @@ public class Chat extends AppCompatActivity {
 
                     mess.setFrom(userName);
                     mess.setText(sent);
-                    //mess.setMac(algHMAC.hashing(mess.getText().getBytes()));
-                    //modalità di criptazione da acquisire dall'activity crypto
+
+                        //   controllo sul digest
+                        digest=algHMAC.hashing(mess.getText().getBytes());
+                        //   controllo sul digest
+                        Log.d(TAG,"lunghezza Dati Digest: "+digest.length+" byte"+"\n Digest inviato: "
+                                +Base64.encodeToString(digest,Base64.DEFAULT));
+                        mess.setMac(algRSAServ.rsaEncrypt(digest,algRSAServ.getPu()));
+                        Log.d(TAG,"Controllo chiave pubblica Server: "+
+                                Base64.encodeToString(algRSAServ.getPu().getEncoded(),Base64.DEFAULT));
 
                     mess.setCripto(crittoState);
                     Log.d(TAG, "ho scritto NO Crypting: " + sent);
@@ -372,7 +454,7 @@ public class Chat extends AppCompatActivity {
 
                     //Scegli il tipo di Criptazione
                     Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
-                    SocketHandler.getOutput().writeLong(data.length);
+
                     SocketHandler.getOutput().writeObject(data);
                     SocketHandler.getOutput().flush();
                     break;
@@ -411,6 +493,7 @@ public class Chat extends AppCompatActivity {
                    if( (dataRec = (byte[])SocketHandler.getInput().readObject())!=null){
                        //Decripta e converti i byte in envelop
 
+
                        switch (crittoState)
                        {
                            case AES:
@@ -434,8 +517,22 @@ public class Chat extends AppCompatActivity {
 
 
                        e=e.convByteEnv(dataRec);
+                       byte[] digest=algHMAC.hashing(e.getText().getBytes());
+
+                       byte[]checkDigest=myRSA.rsaDecrypt(e.getMac(),myRSA.getPr());
+
                        Log.d(TAG,"ho ricevuto: "+e.getText());
-                       publishProgress(e);
+                       if(MessageDigest.isEqual(checkDigest,digest)) {
+                           Log.d(TAG,"\nDigest  Corrispondenti");
+                           publishProgress(e);
+                       }
+                       else{
+                           Log.d(TAG,"\nDigest Differenti,\nil messaggio è stato modificato ");
+                           e.setText("Digest Differenti,\n" +
+                                   "il messaggio è stato modificato");
+                           publishProgress(e);
+
+                       }
                    }
                 }
             }catch(IOException ioe)
