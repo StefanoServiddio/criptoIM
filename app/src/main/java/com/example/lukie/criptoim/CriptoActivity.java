@@ -58,13 +58,13 @@ public class CriptoActivity extends AppCompatActivity {
 
         switch (mode){
             case AES:
-                aesBut.setText("AES Active");
+                aesBut.setText("AES-256 Active");
                 break;
             case DES3:
-                desBut.setText("DES3 Active");
+                desBut.setText("DES3-198 Active");
                 break;
             case Blow:
-                blowBut.setText("Blowfish Active");
+                blowBut.setText("Blowfish-128 Active");
                 break;
             default:
                 break;

@@ -354,7 +354,7 @@ public class Chat extends AppCompatActivity {
                         //conversione in byte
 
                         byte[] data = mess.convEnvByte(mess);
-
+                        Log.d(TAG,"DATI IN CHIARO TRASMESSI: "+Base64.encodeToString(data,Base64.DEFAULT));
                         //Scegli il tipo di Criptazione
                         Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
 
@@ -392,9 +392,10 @@ public class Chat extends AppCompatActivity {
                         //conversione in byte
 
                          data = mess.convEnvByte(mess);
-
+                        Log.d(TAG,"DATI IN CHIARO TRASMESSI: "+Base64.encodeToString(data,Base64.DEFAULT));
                         //Scegli il tipo di Criptazione
                         Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
+                        Log.d(TAG,"DATI IN CHIARO TRASMESSI: "+Base64.encodeToString(data,Base64.DEFAULT));
                         data=algDes.encrypt(data);
 
                         SocketHandler.getOutput().writeObject(data);
@@ -422,6 +423,7 @@ public class Chat extends AppCompatActivity {
 
                         //Scegli il tipo di Criptazione
                         Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
+                        Log.d(TAG,"DATI IN CHIARO TRASMESSI: "+Base64.encodeToString(data,Base64.DEFAULT));
                         data=algBlow.encrypt(data);
 
                         SocketHandler.getOutput().writeObject(data);
@@ -454,7 +456,7 @@ public class Chat extends AppCompatActivity {
 
                     //Scegli il tipo di Criptazione
                     Log.d("TAG", "Modalità di crittazione inviata: " + crittoState);
-
+                   Log.d(TAG,"DATI IN CHIARO TRASMESSI: "+Base64.encodeToString(data,Base64.DEFAULT));
                     SocketHandler.getOutput().writeObject(data);
                     SocketHandler.getOutput().flush();
                     break;
